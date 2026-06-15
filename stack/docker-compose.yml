@@ -1,0 +1,56 @@
+# Minimum service subset (decision C3): Jellyfin + Nextcloud + telemetry stack.
+# Used as-is on Machine B (continuous AI telemetry) and as the "containerised"
+# variant on Machine A. Adjust resource limits per machine if needed.
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:10.9.6
+    restart: unless-stopped
+    ports: ["8096:8096"]
+    volumes:
+      - jellyfin_config:/config
+      - ./media:/media:ro
+
+  nextcloud:
+    image: nextcloud:29-apache
+    restart: unless-stopped
+    ports: ["8080:80"]
+    depends_on: [postgres]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: devpw
+      POSTGRES_DB: nc
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: devpw
+      POSTGRES_DB: nc
+
+  node_exporter:
+    image: prom/node-exporter:v1.8.0
+    restart: unless-stopped
+    ports: ["9100:9100"]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    privileged: true
+    ports: ["8081:8080"]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    restart: unless-stopped
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+
+volumes:
+  jellyfin_config:
+  prom_data:

@@ -1,0 +1,23 @@
+# Machine A — spare x86 (wiped), architecture comparison + maintainability (RQ1/RQ3)
+#
+# Fill in with REAL values before each reimage. Use:
+#   - CPU:    lscpu | grep -E 'Model name|Socket|Core|Thread'
+#   - RAM:    free -h   and   sudo dmidecode -t memory | grep -E 'Size|Speed|Type:'
+#   - Drives: lsblk -d -o NAME,SIZE,ROTA,MODEL,TRAN
+#   - NIC:    lspci | grep -i ethernet   and   ip link
+#   - BIOS/firmware: sudo dmidecode -s bios-version
+#
+# This file is the source of truth for thesis §3.1 — rewrite that section
+# from whatever is recorded here, not from the old draft.
+
+CPU model:
+CPU cores / threads:
+RAM (size, type, speed):
+
+Drive 1 (model, size, SSD/HDD/NVMe):
+Drive 2 (model, size, SSD/HDD/NVMe):
+
+NIC:
+BIOS/firmware version:
+Date recorded (UTC):
+OS / variant installed at time of recording:

@@ -1,0 +1,23 @@
+# Machine B — Windows daily driver, AI anomaly-detection pipeline (RQ2)
+#
+# Fill in with REAL values. On Windows (PowerShell):
+#   Get-CimInstance Win32_Processor | select Name, NumberOfCores, NumberOfLogicalProcessors
+#   Get-CimInstance Win32_PhysicalMemory | select Capacity, Speed, Manufacturer
+#   Get-PhysicalDisk | select FriendlyName, Size, MediaType
+#   wsl --version   (record WSL2 kernel version)
+#   docker version  (record Docker Desktop / engine version)
+#
+# Honesty note for the thesis: telemetry from this machine comes from Docker
+# Desktop on Windows (a WSL2 Linux VM), not from a dedicated bare-metal/clean
+# test bench. It is valid for demonstrating anomaly detection on injected
+# faults, but is NOT presented as data from the Machine-A architecture
+# comparison. Cross-architecture AI comparison is future work.
+
+CPU model:
+CPU cores / threads:
+RAM (size, type, speed):
+Storage:
+OS version:
+WSL2 kernel version:
+Docker Desktop / engine version:
+Date recorded (UTC):

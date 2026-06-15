@@ -1,0 +1,12 @@
+[seqread]
+ioengine=libaio
+direct=1
+rw=read
+bs=128k
+numjobs=4
+iodepth=8
+runtime=60
+time_based=1
+group_reporting=1
+size=1G
+directory=/var/lib/benchdir
