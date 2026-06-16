@@ -66,12 +66,19 @@ task_fault_container() {
 }
 
 task_fault_baremetal() {
-    sudo sed -i 's/<HttpServerPortNumber>8096/<HttpServerPortNumber>9096/' \
-        /etc/jellyfin/network.xml 2>/dev/null || true
+    # Introduce fault: override jellyfin to use a wrong port via systemd drop-in
+    sudo mkdir -p /etc/systemd/system/jellyfin.service.d
+    printf '[Service]\nEnvironment="JELLYFIN_PORT=9096"\n' | \
+        sudo tee /etc/systemd/system/jellyfin.service.d/fault.conf > /dev/null
+    sudo systemctl daemon-reload
     sudo systemctl restart jellyfin
     wait_unhealthy
-    sudo grep '9096' /etc/jellyfin/network.xml || true
-    sudo sed -i 's/9096/8096/' /etc/jellyfin/network.xml 2>/dev/null || true
+    # Diagnose: inspect the override
+    sudo systemctl status jellyfin --no-pager | tail -5
+    sudo cat /etc/systemd/system/jellyfin.service.d/fault.conf
+    # Fix: remove the override
+    sudo rm /etc/systemd/system/jellyfin.service.d/fault.conf
+    sudo systemctl daemon-reload
     sudo systemctl restart jellyfin
     wait_healthy
 }
