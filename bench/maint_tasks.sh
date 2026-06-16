@@ -2,7 +2,7 @@
 # Runs all 4 maintainability tasks (3 runs each) for a given variant and
 # records wall-clock seconds to data/<variant>_maint.csv automatically.
 #
-# Usage: bash bench/maint_tasks.sh <variant>
+# Usage (from repo root): bash bench/maint_tasks.sh <variant>
 #   variant: containerised | bare-metal
 set -euo pipefail
 
@@ -12,80 +12,112 @@ COMPOSE="stack/docker-compose.yml"
 
 echo "variant,task,run,seconds" > "$OUT"
 
-run_timed() {
-    local task="$1"; shift
-    for run in 1 2 3; do
-        echo ">>> $task — run $run/3"
-        local start end secs
-        start=$(date +%s%N)
-        "$@"
-        end=$(date +%s%N)
-        secs=$(awk "BEGIN {printf \"%.1f\", ($end - $start) / 1000000000}")
-        echo "$VARIANT,$task,$run,$secs" >> "$OUT"
-        echo "    recorded: ${secs}s"
+timed() {
+    local task="$1"
+    local run="$2"
+    local start end secs
+    start=$(date +%s%N)
+    shift 2
+    "$@"
+    end=$(date +%s%N)
+    secs=$(awk "BEGIN {printf \"%.1f\", ($end - $start) / 1000000000}")
+    echo "$VARIANT,$task,$run,$secs" >> "$OUT"
+    echo "    -> ${secs}s recorded"
+}
+
+wait_healthy() {
+    until curl -s http://localhost:8096/health 2>/dev/null | grep -q Healthy; do
+        sleep 2
     done
 }
 
-# ---- Task 1: routine update ----
-if [ "$VARIANT" = "containerised" ]; then
-    run_timed update bash -c "docker compose -f $COMPOSE pull && docker compose -f $COMPOSE up -d"
-else
-    run_timed update bash -c "sudo apt-get update -qq && sudo apt-get upgrade -y jellyfin -qq && sudo systemctl restart jellyfin"
-fi
+wait_unhealthy() {
+    local i=0
+    while curl -s http://localhost:8096/health 2>/dev/null | grep -q Healthy; do
+        sleep 1
+        i=$((i+1))
+        [ $i -gt 30 ] && break
+    done
+}
 
-# ---- Task 2: fault diagnosis ----
-# Introduce a deliberate misconfiguration, measure time until service confirmed broken + root cause found
-if [ "$VARIANT" = "containerised" ]; then
-    run_timed fault_diagnosis bash -c "
-        # Break it: wrong port env var
-        sed -i 's/8096:8096/9096:8096/' $COMPOSE
-        docker compose -f $COMPOSE up -d         # Diagnose: check health, inspect config, find the port mismatch
-        until ! curl -s http://localhost:8096/health >/dev/null 2>&1; do sleep 1; done
-        docker compose -f $COMPOSE ps
-        grep '9096' $COMPOSE
-        # Fix it
-        sed -i 's/9096:8096/8096:8096/' $COMPOSE
-        docker compose -f $COMPOSE up -d         until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
-    "
-else
-    run_timed fault_diagnosis bash -c "
-        sudo sed -i 's/8096/9096/' /etc/jellyfin/network.xml 2>/dev/null || true
-        sudo systemctl restart jellyfin
-        until ! curl -s http://localhost:8096/health >/dev/null 2>&1; do sleep 1; done
-        sudo systemctl status jellyfin | grep -i port || true
-        sudo grep '9096' /etc/jellyfin/network.xml
-        sudo sed -i 's/9096/8096/' /etc/jellyfin/network.xml
-        sudo systemctl restart jellyfin
-        until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
-    "
-fi
+# ---- Task functions ----
 
-# ---- Task 3: recovery (restart from known-good state) ----
-if [ "$VARIANT" = "containerised" ]; then
-    run_timed recovery bash -c "
-        docker compose -f $COMPOSE down         docker compose -f $COMPOSE up -d         until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
-    "
-else
-    run_timed recovery bash -c "
-        sudo systemctl stop jellyfin
-        sudo systemctl start jellyfin
-        until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
-    "
-fi
+task_update_container() {
+    docker compose -f "$COMPOSE" pull
+    docker compose -f "$COMPOSE" up -d
+}
 
-# ---- Task 4: clean reinstall ----
-if [ "$VARIANT" = "containerised" ]; then
-    run_timed clean_install bash -c "
-        docker compose -f $COMPOSE down -v         docker compose -f $COMPOSE up -d         until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
-    "
-else
-    run_timed clean_install bash -c "
-        sudo apt-get purge -y jellyfin -qq
-        sudo apt-get install -y jellyfin -qq
-        sudo systemctl enable --now jellyfin
-        until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
-    "
-fi
+task_update_baremetal() {
+    sudo apt-get update -qq
+    sudo apt-get upgrade -y jellyfin -qq
+    sudo systemctl restart jellyfin
+    wait_healthy
+}
+
+task_fault_container() {
+    sed -i 's/8096:8096/9096:8096/' "$COMPOSE"
+    docker compose -f "$COMPOSE" up -d
+    wait_unhealthy
+    docker compose -f "$COMPOSE" ps
+    grep '9096' "$COMPOSE"
+    sed -i 's/9096:8096/8096:8096/' "$COMPOSE"
+    docker compose -f "$COMPOSE" up -d
+    wait_healthy
+}
+
+task_fault_baremetal() {
+    sudo sed -i 's/<HttpServerPortNumber>8096/<HttpServerPortNumber>9096/' \
+        /etc/jellyfin/network.xml 2>/dev/null || true
+    sudo systemctl restart jellyfin
+    wait_unhealthy
+    sudo grep '9096' /etc/jellyfin/network.xml || true
+    sudo sed -i 's/9096/8096/' /etc/jellyfin/network.xml 2>/dev/null || true
+    sudo systemctl restart jellyfin
+    wait_healthy
+}
+
+task_recovery_container() {
+    docker compose -f "$COMPOSE" down
+    docker compose -f "$COMPOSE" up -d
+    wait_healthy
+}
+
+task_recovery_baremetal() {
+    sudo systemctl stop jellyfin
+    sudo systemctl start jellyfin
+    wait_healthy
+}
+
+task_reinstall_container() {
+    docker compose -f "$COMPOSE" down -v
+    docker compose -f "$COMPOSE" up -d
+    wait_healthy
+}
+
+task_reinstall_baremetal() {
+    sudo apt-get purge -y jellyfin -qq
+    sudo apt-get install -y jellyfin -qq
+    sudo systemctl enable --now jellyfin
+    wait_healthy
+}
+
+# ---- Run all tasks ----
+
+for task in update fault_diagnosis recovery clean_reinstall; do
+    for run in 1 2 3; do
+        echo ">>> $task — run $run/3"
+        case "${VARIANT}_${task}" in
+            containerised_update)       timed "$task" "$run" task_update_container ;;
+            bare-metal_update)          timed "$task" "$run" task_update_baremetal ;;
+            containerised_fault_diagnosis) timed "$task" "$run" task_fault_container ;;
+            bare-metal_fault_diagnosis) timed "$task" "$run" task_fault_baremetal ;;
+            containerised_recovery)     timed "$task" "$run" task_recovery_container ;;
+            bare-metal_recovery)        timed "$task" "$run" task_recovery_baremetal ;;
+            containerised_clean_reinstall) timed "$task" "$run" task_reinstall_container ;;
+            bare-metal_clean_reinstall) timed "$task" "$run" task_reinstall_baremetal ;;
+        esac
+    done
+done
 
 echo ""
 echo "=== Results saved to $OUT ==="
