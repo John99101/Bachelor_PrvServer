@@ -1,0 +1,13 @@
+variant,task,run,seconds
+bare-metal,update,1,8.3
+bare-metal,update,2,8.1
+bare-metal,update,3,8.3
+bare-metal,fault_diagnosis,1,6.7
+bare-metal,fault_diagnosis,2,6.8
+bare-metal,fault_diagnosis,3,6.8
+bare-metal,recovery,1,6.3
+bare-metal,recovery,2,6.3
+bare-metal,recovery,3,6.3
+bare-metal,clean_reinstall,1,1.5
+bare-metal,clean_reinstall,2,1.5
+bare-metal,clean_reinstall,3,1.5
