@@ -28,7 +28,7 @@ run_timed() {
 
 # ---- Task 1: routine update ----
 if [ "$VARIANT" = "containerised" ]; then
-    run_timed update bash -c "docker compose -f $COMPOSE pull -q && docker compose -f $COMPOSE up -d"
+    run_timed update bash -c "docker compose -f $COMPOSE pull && docker compose -f $COMPOSE up -d"
 else
     run_timed update bash -c "sudo apt-get update -qq && sudo apt-get upgrade -y jellyfin -qq && sudo systemctl restart jellyfin"
 fi
@@ -39,15 +39,13 @@ if [ "$VARIANT" = "containerised" ]; then
     run_timed fault_diagnosis bash -c "
         # Break it: wrong port env var
         sed -i 's/8096:8096/9096:8096/' $COMPOSE
-        docker compose -f $COMPOSE up -d -q
-        # Diagnose: check health, inspect config, find the port mismatch
+        docker compose -f $COMPOSE up -d         # Diagnose: check health, inspect config, find the port mismatch
         until ! curl -s http://localhost:8096/health >/dev/null 2>&1; do sleep 1; done
         docker compose -f $COMPOSE ps
         grep '9096' $COMPOSE
         # Fix it
         sed -i 's/9096:8096/8096:8096/' $COMPOSE
-        docker compose -f $COMPOSE up -d -q
-        until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
+        docker compose -f $COMPOSE up -d         until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
     "
 else
     run_timed fault_diagnosis bash -c "
@@ -65,9 +63,7 @@ fi
 # ---- Task 3: recovery (restart from known-good state) ----
 if [ "$VARIANT" = "containerised" ]; then
     run_timed recovery bash -c "
-        docker compose -f $COMPOSE down -q
-        docker compose -f $COMPOSE up -d -q
-        until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
+        docker compose -f $COMPOSE down         docker compose -f $COMPOSE up -d         until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
     "
 else
     run_timed recovery bash -c "
@@ -80,9 +76,7 @@ fi
 # ---- Task 4: clean reinstall ----
 if [ "$VARIANT" = "containerised" ]; then
     run_timed clean_install bash -c "
-        docker compose -f $COMPOSE down -v -q
-        docker compose -f $COMPOSE up -d -q
-        until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
+        docker compose -f $COMPOSE down -v         docker compose -f $COMPOSE up -d         until curl -s http://localhost:8096/health | grep -q Healthy; do sleep 2; done
     "
 else
     run_timed clean_install bash -c "
