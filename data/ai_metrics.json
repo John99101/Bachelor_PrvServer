@@ -1,0 +1,17 @@
+{
+  "isolation_forest": {
+    "F1": 0.16,
+    "precision": 0.29411764705882354,
+    "recall": 0.10989010989010989,
+    "AUC": 0.7197126643847955
+  },
+  "lstm_ae": {
+    "F1": 0.08,
+    "precision": 0.36363636363636365,
+    "recall": 0.0449438202247191,
+    "AUC": 0.4462007236716816
+  },
+  "detection_latency_min_median": 70.06985799166667,
+  "detection_latency_n_episodes": 30,
+  "n_total_episodes": 40
+}

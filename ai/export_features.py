@@ -12,7 +12,7 @@ import pandas as pd
 import requests
 
 PROM = "http://localhost:9090"
-STEP = "300s"  # 5-minute resample
+STEP = "60s"   # 1-minute resample — better alignment with 2-4 min fault episodes
 
 QUERIES = {
     "cpu_user": 'rate(node_cpu_seconds_total{mode="user"}[5m])',

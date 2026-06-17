@@ -51,7 +51,7 @@ iso_pred = (iso_score > np.quantile(iso_score, 0.9)).astype(int)
 
 
 # ---- LSTM-Autoencoder (windowed) ----
-T = 12
+T = 10  # 10-minute lookback window at 1-min resolution
 
 
 def windows(a):
@@ -88,7 +88,7 @@ model = AE(Xtr.shape[1])
 opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 loss_fn = nn.MSELoss()
 
-for epoch in range(40):
+for epoch in range(100):
     opt.zero_grad()
     loss = loss_fn(model(Wtr), Wtr)
     loss.backward()
